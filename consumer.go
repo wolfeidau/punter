@@ -7,8 +7,10 @@ import (
 	"github.com/streadway/amqp"
 )
 
+// MsgHander function which is supplied to handle delivers.
 type MsgHander func(deliveries <-chan amqp.Delivery, done chan error)
 
+// Consumer holds state for the AMQP consumer
 type Consumer struct {
 	conn    *amqp.Connection
 	channel *amqp.Channel
@@ -17,6 +19,7 @@ type Consumer struct {
 	count   int
 }
 
+// NewConsumer create and configure a new consumer, this also triggers a connection to AMQP server
 func NewConsumer(amqpURI, exchange, exchangeType, queueName, key, ctag string, msgHandler MsgHander) (*Consumer, error) {
 
 	c := &Consumer{
@@ -74,6 +77,7 @@ func NewConsumer(amqpURI, exchange, exchangeType, queueName, key, ctag string, m
 		queue.Name, queue.Messages, queue.Consumers, key)
 
 	args := amqp.Table{}
+	// TODO make this configurable.
 	args["x-expires"] = int32(30000) // 30 second
 
 	if err = c.channel.QueueBind(
@@ -105,6 +109,7 @@ func NewConsumer(amqpURI, exchange, exchangeType, queueName, key, ctag string, m
 	return c, nil
 }
 
+// Shutdown enables cleanup of AMQP connection
 func (c *Consumer) Shutdown() error {
 	// will close() the deliveries channel
 	if err := c.channel.Cancel(c.tag, true); err != nil {
