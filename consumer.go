@@ -19,20 +19,32 @@ type Consumer struct {
 	count   int
 }
 
+// Config is the settings for the consumer
+type Config struct {
+	AmqpURI      string
+	Exchange     string
+	ExchangeType string
+	QueueName    string
+	Key          string
+	Ctag         string
+	MessageTTL   int32 // How long to retain messages in the queue
+	Durable      bool  // Queue durable?
+}
+
 // NewConsumer create and configure a new consumer, this also triggers a connection to AMQP server
-func NewConsumer(amqpURI, exchange, exchangeType, queueName, key, ctag string, msgHandler MsgHander) (*Consumer, error) {
+func NewConsumer(config Config, msgHandler MsgHander) (*Consumer, error) {
 
 	c := &Consumer{
 		conn:    nil,
 		channel: nil,
-		tag:     ctag,
+		tag:     config.Ctag,
 		done:    make(chan error),
 	}
 
 	var err error
 
-	log.Printf("dialing %q", amqpURI)
-	c.conn, err = amqp.Dial(amqpURI)
+	log.Printf("dialing %q", config.AmqpURI)
+	c.conn, err = amqp.Dial(config.AmqpURI)
 	if err != nil {
 		return nil, fmt.Errorf("Dial: %s", err)
 	}
@@ -47,45 +59,51 @@ func NewConsumer(amqpURI, exchange, exchangeType, queueName, key, ctag string, m
 		return nil, fmt.Errorf("Channel: %s", err)
 	}
 
-	log.Printf("got Channel, declaring Exchange (%q)", exchange)
+	log.Printf("got Channel, declaring Exchange (%q)", config.Exchange)
 	if err = c.channel.ExchangeDeclare(
-		exchange,     // name of the exchange
-		exchangeType, // type
-		true,         // durable
-		false,        // delete when complete
-		false,        // internal
-		false,        // noWait
-		nil,          // arguments
+		config.Exchange,     // name of the exchange
+		config.ExchangeType, // type
+		config.Durable,      // durable
+		false,               // delete when complete
+		false,               // internal
+		false,               // noWait
+		nil,                 // arguments
 	); err != nil {
 		return nil, fmt.Errorf("Exchange Declare: %s", err)
 	}
+	qargs := amqp.Table{}
 
-	log.Printf("declared Exchange, declaring Queue %q", queueName)
+	// if the value is set then configure the argument
+	if config.MessageTTL > 0 {
+		qargs["x-message-ttl"] = config.MessageTTL
+	}
+
+	log.Printf("declared Exchange, declaring Queue %q", config.QueueName)
 	queue, err := c.channel.QueueDeclare(
-		queueName, // name of the queue
-		true,      // durable
-		false,     // delete when usused
-		false,     // exclusive
-		false,     // noWait
-		nil,       // arguments
+		config.QueueName, // name of the queue
+		true,             // durable
+		false,            // delete when usused
+		false,            // exclusive
+		false,            // noWait
+		qargs,            // arguments
 	)
 	if err != nil {
 		return nil, fmt.Errorf("Queue Declare: %s", err)
 	}
 
 	log.Printf("declared Queue (%q %d messages, %d consumers), binding to Exchange (key %q)",
-		queue.Name, queue.Messages, queue.Consumers, key)
+		queue.Name, queue.Messages, queue.Consumers, config.Key)
 
 	args := amqp.Table{}
 	// TODO make this configurable.
 	args["x-expires"] = int32(30000) // 30 second
 
 	if err = c.channel.QueueBind(
-		queue.Name, // name of the queue
-		key,        // bindingKey
-		exchange,   // sourceExchange
-		false,      // noWait
-		args,       // arguments
+		queue.Name,      // name of the queue
+		config.Key,      // bindingKey
+		config.Exchange, // sourceExchange
+		false,           // noWait
+		args,            // arguments
 	); err != nil {
 		return nil, fmt.Errorf("Queue Bind: %s", err)
 	}
