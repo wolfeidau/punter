@@ -32,7 +32,7 @@ type Config struct {
 }
 
 // NewConsumer create and configure a new consumer, this also triggers a connection to AMQP server
-func NewConsumer(config Config, msgHandler MsgHander) (*Consumer, error) {
+func NewConsumer(config *Config, msgHandler MsgHander) (*Consumer, error) {
 
 	c := &Consumer{
 		conn:    nil,
