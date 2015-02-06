@@ -26,18 +26,17 @@ type Config struct {
 	ExchangeType string
 	QueueName    string
 	Key          string
-	Ctag         string
 	MessageTTL   int32 // How long to retain messages in the queue
 	Durable      bool  // Queue durable?
 }
 
 // NewConsumer create and configure a new consumer, this also triggers a connection to AMQP server
-func NewConsumer(config *Config, msgHandler MsgHander) (*Consumer, error) {
+func NewConsumer(config *Config, ctag string, msgHandler MsgHander) (*Consumer, error) {
 
 	c := &Consumer{
 		conn:    nil,
 		channel: nil,
-		tag:     config.Ctag,
+		tag:     ctag,
 		done:    make(chan error),
 	}
 
