@@ -66,7 +66,7 @@ func NewConsumer(config *Config, ctag string, msgHandler MsgHander) (*Consumer, 
 	if err = c.channel.ExchangeDeclare(
 		config.Exchange,     // name of the exchange
 		config.ExchangeType, // type
-		config.Durable,      // durable
+		true,                // durable
 		false,               // delete when complete
 		false,               // internal
 		false,               // noWait
@@ -84,7 +84,7 @@ func NewConsumer(config *Config, ctag string, msgHandler MsgHander) (*Consumer, 
 	log.Infof("declared Exchange, declaring Queue %q", config.QueueName)
 	queue, err := c.channel.QueueDeclare(
 		config.QueueName, // name of the queue
-		true,             // durable
+		config.Durable,   // durable
 		false,            // delete when usused
 		false,            // exclusive
 		false,            // noWait
