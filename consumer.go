@@ -32,6 +32,7 @@ type Config struct {
 	Key          string
 	MessageTTL   int32 // How long to retain messages in the queue
 	Durable      bool  // Queue durable?
+	Prefetch     int
 }
 
 // NewConsumer create and configure a new consumer, this also triggers a connection to AMQP server
@@ -92,6 +93,13 @@ func NewConsumer(config *Config, ctag string, msgHandler MsgHander) (*Consumer, 
 	)
 	if err != nil {
 		return nil, fmt.Errorf("Queue Declare: %s", err)
+	}
+
+	// Set the QoS if necessary
+	if config.Prefetch > 0 {
+		if err := c.channel.Qos(config.Prefetch, 0, false); err != nil {
+			return nil, fmt.Errorf("Failed to set Qos prefetch! Got: %s", err)
+		}
 	}
 
 	log.Infof("declared Queue (%q %d messages, %d consumers), binding to Exchange (key %q)",
